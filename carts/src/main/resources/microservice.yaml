@@ -1,0 +1,27 @@
+APPLICATION_ID: sockshop
+service_description:
+  name: carts
+  version: 0.0.1
+cse:
+  service:
+    registry:
+      address: https://${SC_HOST}:30100
+  monitor:
+    client:
+      serverUri: https://${SC_HOST}:30109
+  rest:
+    address: 0.0.0.0:7072
+  grpc:
+    address: 0.0.0.0:9090
+  highway:
+    address: 0.0.0.0:7070?sslEnabled=false
+  handler:
+    chain:
+      Provider:
+        default: bizkeeper-provider,perf-stats
+      Consumer:
+        default: bizkeeper-consumer,perf-stats
+
+ssl.sc.consumer.sslOptionFactory: com.huawei.paas.foundation.auth.SSLOptionFactoryCloud
+ssl.apiserver.consumer.sslOptionFactory: com.huawei.paas.foundation.auth.SSLOptionFactoryCloud
+ssl.monitor.consumer.sslOptionFactory: com.huawei.paas.foundation.auth.SSLOptionFactoryCloud 

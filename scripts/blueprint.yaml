@@ -1,0 +1,741 @@
+tosca_definitions_version: hwpaas_tosca_version_1_4_1
+
+inputs:
+  image-frontend:
+    default: "100.125.1.34:20202/hwcse/sockshop-frontend:0.0.63"
+  image-orders:
+    default: "100.125.1.34:20202/hwcse/sockshop-orders:3.2.1"
+  image-payment:
+    default: "100.125.1.34:20202/hwcse/sockshop-payment:3.2.1"
+  image-user:
+    default: "100.125.1.34:20202/hwcse/sockshop-user:3.2.1"
+  image-carts:
+    default: "100.125.1.34:20202/hwcse/sockshop-carts:3.2.1"
+  image-shipping:
+    default: "100.125.1.34:20202/hwcse/sockshop-shipping:3.2.1"
+  image-catalogue:
+    default: "100.125.1.34:20202/hwcse/sockshop-cat:3.2.3"
+  image-rabbitmq:
+    default: "100.125.1.34:20202/hwcse/rabbitmq:3.6.8-management"
+  image-queuemaster:
+    default: "100.125.1.34:20202/hwcse/sockshop-queuemaster:3.2.1"
+  image-mongodb-orders:
+    default: "100.125.1.34:20202/hwcse/mongo:1.0.0"
+  image-mongodb-users:
+    default: "100.125.1.34:20202/hwcse/sockshop-users-db:1.1.1"
+  image-mongodb-carts:
+    default: "100.125.1.34:20202/hwcse/mongo:1.0.0"
+  image-mysql:
+    default: "100.125.1.34:20202/hwcse/sockshop-mysql:2.0.0"
+  sc_host:
+    default: "100.125.1.34"
+  frontend_name:
+    default: "frontend"
+  orders_name:
+    default: "orders"
+  queuemaster_name:
+    default: "queuemaster"
+  shipping_name:
+    default: "shipping"
+  carts_name:
+    default: "carts"
+  user_name:
+    default: "user"
+  payment_name:
+    default: "payment"
+  catalogue_name:
+    default: "catalogue"
+  rabbitmq_name:
+     default: "rabbitmq"
+  mongodb_users_name:
+    default: "mongodb-users"
+  mongodb_orders_name:
+    default: "mongodb-orders"
+  mongodb_carts_name:
+    default: "mongodb-carts"
+  mysql_name:
+    default: "mysql"
+
+node_templates:
+  cse-localtime-volume:
+    type: hwpaas.nodes.LocalVolume
+    properties:
+      name: localtime
+      type: local_storage
+      host_path: /etc/localtime
+
+  cse-resolv-volume:
+    type: hwpaas.nodes.LocalVolume
+    properties:
+      name: resolv
+      type: local_storage
+      host_path: /etc/resolv.conf
+
+  bptest-host:
+    type: hwpaas.nodes.Cluster
+    properties:
+      name: acmeair-tianming
+      namespace: default
+      instances: 1
+  #frontend
+  sockshop-group:
+    type: hwpaas.nodes.AppGroup
+    requirements:
+      - member:
+          node: frontend-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: orders-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: queuemaster-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: shipping-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: carts-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: user-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: payment-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: catalogue-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: rabbitmq-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: mongodb-users-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: mongodb-orders-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: mongodb-carts-app
+          relationship: hwpaas.relationships.ConsistsOf
+      - member:
+          node: mysql-app
+          relationship: hwpaas.relationships.ConsistsOf
+  #frontend
+  frontend-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: frontend_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: frontend
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - dependency:
+          node: orders-app
+          relationship: hwpaas.relationships.ConnectsTo
+
+  frontend:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        container_spec:
+          image: { get_input: image-frontend }
+        env:
+          - name: "SC_HOST"
+            value: { get_input: sc_host }
+        service_spec:
+          type: NodePort
+          ports:
+            - port: 8079
+              nodePort: 32709
+              targetPort: 8079
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: true
+  #orders
+  orders-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: orders_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: orders
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - dependency:
+          node: queuemaster-app
+          relationship: hwpaas.relationships.ConnectsTo
+
+  orders:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        env:
+          - name: "SC_HOST"
+            value: { get_input: sc_host }
+        container_spec:
+          image: { get_input: image-orders }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 7091
+              name: ordersport
+              targetPort: 7091
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: true
+  #queuemaster
+  queuemaster-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: queuemaster_name }
+      custom_spec:
+        rabbitmq_host: { get_attribute: [rabbitmq, Service, clusterIP] }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: queuemaster
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - dependency:
+          node: shipping-app
+          relationship: hwpaas.relationships.ConnectsTo
+      - dependency:
+          node: rabbitmq-app
+          relationship: hwpaas.relationships.ConnectsTo
+
+  queuemaster:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        env:
+          - name: "SC_HOST"
+            value: { get_input: sc_host }
+        container_spec:
+          image: { get_input: image-queuemaster }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 7094
+              name: queuemasterport
+              targetPort: 7094
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: true
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: true
+
+  # shipping
+  shipping-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: shipping_name }
+      custom_spec:
+        rabbitmq_host: { get_attribute: [rabbitmq, Service, clusterIP] }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: shipping
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - dependency:
+          node: carts-app
+          relationship: hwpaas.relationships.ConnectsTo
+      - dependency:
+          node: rabbitmq-app
+          relationship: hwpaas.relationships.ConnectsTo
+
+  shipping:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        env:
+          - name: "SC_HOST"
+            value: { get_input: sc_host}
+        container_spec:
+          image: { get_input: image-shipping }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 7093
+              name: shippingport
+              targetPort: 7093
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: true
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: true
+  #carts
+  carts-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: carts_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: carts
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - dependency:
+          node: user-app
+          relationship: hwpaas.relationships.ConnectsTo
+
+  carts:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        env:
+          - name: "SC_HOST"
+            value: { get_input: sc_host }
+        container_spec:
+          image: { get_input: image-carts }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 7092
+              name: cartsport
+              targetPort: 7092
+        resource_spec:
+          request:
+            cpu: 500m
+            memory: 512Mi
+          limit:
+            cpu: 1000m
+            memory: 1024Mi
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: true
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: true
+  #user
+  user-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: user_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: user
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - dependency:
+          node: payment-app
+          relationship: hwpaas.relationships.ConnectsTo
+
+  user:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        env:
+          - name: "USER_DATABASE"
+            value: mongodb
+          - name: "SC_HOST"
+            value: { get_input: sc_host }
+        container_spec:
+          image: { get_input: image-user }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 8081
+              name: userport
+              targetPort: 8081
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: true
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: true
+  #payment
+  payment-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: payment_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: payment
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+
+  payment:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        container_spec:
+          image: { get_input: image-payment }
+        env:
+          - name: "SC_HOST"
+            value: { get_input: sc_host }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 9099
+              name: paymentport
+              targetPort: 9099
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: true
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: true
+  #catalogue
+  catalogue-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: catalogue_name }
+      custom_spec:
+        mysql_ip: { get_attribute: [mysql-app, Service, clusterIP] }
+        mysql_port: { get_attribute: [mysql-app, Service, ports, 0, port] }
+        mysql_user: catalogue_user
+        mysql_db: socksdb
+        mysql_password: default_password
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: catalogue
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - dependency:
+          node: rabbitmq-app
+          relationship: hwpaas.relationships.ConnectsTo
+
+  catalogue:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        container_spec:
+          image: { get_input: image-catalogue }
+        env:
+          - name: "SC_HOST"
+            value: { get_input: sc_host }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 9098
+              name: catalogueport
+              targetPort: 9098
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: true
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: true
+  #rabbitmq
+  rabbitmq-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: rabbitmq_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: rabbitmq
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - dependency:
+          node: mongodb-users-app
+          relationship: hwpaas.relationships.ConnectsTo
+      - dependency:
+          node: mongodb-orders-app
+          relationship: hwpaas.relationships.ConnectsTo
+      - dependency:
+          node: mongodb-carts-app
+          relationship: hwpaas.relationships.ConnectsTo
+      - dependency:
+          node: mysql-app
+          relationship: hwpaas.relationships.ConnectsTo
+
+  rabbitmq:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        container_spec:
+          image: { get_input: image-rabbitmq }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 5672
+              name: rabbitmqport
+              targetPort: 5672
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: true
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: true
+  #mongodb-users
+  mongodb-users-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: mongodb_users_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: mongodb-users
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+
+  mongodb-users:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        container_spec:
+          image: { get_input: image-mongodb-users }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 27017
+        resource_spec:
+          request:
+            cpu: 1000m
+            memory: 1024Mi
+          limit:
+            cpu: 1000m
+            memory: 1024Mi
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: false
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: false
+# mongodb-orders
+  mongodb-orders-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: mongodb_orders_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: mongodb-orders
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+
+  mongodb-orders:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        container_spec:
+          image: { get_input: image-mongodb-orders }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 27017
+        resource_spec:
+          request:
+            cpu: 1000m
+            memory: 1024Mi
+          limit:
+            cpu: 1000m
+            memory: 1024Mi
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: false
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: false
+# mongodb-carts
+  mongodb-carts-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: mongodb_carts_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: mongodb-carts
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+
+  mongodb-carts :
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        container_spec:
+          image: { get_input: image-mongodb-carts }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 27017
+        resource_spec:
+          request:
+            cpu: 1000m
+            memory: 1024Mi
+          limit:
+            cpu: 1000m
+            memory: 1024Mi
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: false
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: false
+  #mysql
+  mysql-app:
+    type: hwpaas.nodes.Application
+    properties:
+      type: container
+      name: { get_input: mysql_name }
+    requirements:
+      - host:
+          node: bptest-host
+          relationship: hwpaas.relationships.HostedOn
+      - package:
+          node: mysql
+          relationship: hwpaas.relationships.PackageConsistsOf
+      - volume:
+          node: cse-localtime-volume
+          relationship: hwpaas.relationships.AttachesTo
+      - volume:
+          node: cse-resolv-volume
+          relationship: hwpaas.relationships.AttachesTo
+
+  mysql:
+    type: hwpaas.nodes.SoftwareComponent
+    properties:
+      package:
+        package_type: container
+        env:
+          - name: "MYSQL_ROOT_PASSWORD"
+            value: default_password
+          - name: "MYSQL_DATABASE"
+            value: socksdb
+        container_spec:
+          image: { get_input: image-mysql }
+        service_spec:
+          type: ClusterIP
+          ports:
+            - port: 3306
+        resource_spec:
+          request:
+            cpu: 1000m
+            memory: 1024Mi
+          limit:
+            cpu: 1000m
+            memory: 1024Mi
+        volumes:
+          - name: localtime
+            mountpath: /etc/localtime
+            readOnly: false
+          - name: resolv
+            mountpath: /etc/resolv.conf
+            readOnly: false
